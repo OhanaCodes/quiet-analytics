@@ -1,0 +1,4 @@
+# /etc/cron.d/quiet-analytics — nightly batch, server timezone.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 3 * * * root umask 077; /usr/local/sbin/quiet-report > /var/lib/quiet-analytics/last-run.log 2>&1

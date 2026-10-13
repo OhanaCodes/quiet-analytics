@@ -1,0 +1,34 @@
+#!/bin/bash
+# Quiet Analytics — nightly batch. Reads the masked log, writes one private HTML report.
+# No database, no daemon, no listener, no public URL.
+set -euo pipefail
+export LC_ALL=C
+umask 077
+
+out=${QA_OUT:-/var/lib/quiet-analytics}
+lib=${QA_LIB:-/usr/local/lib/quiet-analytics}
+title=${QA_TITLE:-'Site report — network groups are not people'}
+
+mkdir -p "$out"
+exec 9>"$out/run.lock"
+flock -n 9 || exit 0
+
+# A hard ceiling for this batch and its children. Does not affect nginx.
+ulimit -v 131072
+ulimit -t 120
+
+stage=$(mktemp -d "$out/.run.XXXXXX")
+trap 'rm -rf "$stage"' EXIT
+
+python3 "$lib/qa-input.py" |
+  timeout 180 nice -n 10 \
+  goaccess - --no-global-config --log-format=COMBINED --no-progress \
+    --no-term-resolver \
+    --html-report-title="$title" \
+    --ignore-panel=HOSTS --ignore-panel=OS --ignore-panel=BROWSERS \
+    -o "$stage/report.html"
+
+# Replace the last good report only after a complete successful run.
+mv "$stage/report.html" "$out/report.html"
+date -u '+Completed %Y-%m-%d %H:%M:%S UTC'
+du -h "$out/report.html"
